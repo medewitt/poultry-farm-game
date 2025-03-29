@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stochastic SIR Model Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.5;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            padding: 20px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+        }
+        .chart-container {
+            flex: 2;
+            min-width: 600px;
+            height: 500px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .parameter {
+            margin-bottom: 15px;
+        }
+        .parameter label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .parameter input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .parameter .range-value {
+            display: inline-block;
+            width: 60px;
+            text-align: right;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 10px 0;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9f7ef;
+            border-radius: 8px;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 100;
+            display: none;
+        }
+        .accordion-section {
+            border: 1px solid #ddd;
+            margin-bottom: 5px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .accordion-header {
+            background-color: #e7e7e7;
+            padding: 10px 15px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-header:hover {
+            background-color: #d7d7d7;
+        }
+        .accordion-content {
+            padding: 15px;
+            display: none;
+            background-color: white;
+        }
+
+        .accordion-info {
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .accordion-section.active .accordion-content {
+            display: block;
+        }
+        .accordion-header::after {
+            content: '+';
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .accordion-section.active .accordion-header::after {
+            content: '-';
+        }
+        .over-budget {
+            color: red;
+            font-weight: bold;
+        }
+    </style>
+    <script src="wasm_exec.js"></script>
+</head>
+<body>
+    <h1>Stochastic SIR Model Simulation for Bird Populations</h1>
+
+    <div>You're a poultry farmer and trying to figure out how to best manage your farm. You have a budget of $200,000 from your savings that you could hold, spend on vaccination, or spend on biosecurity. Biosecurity reduces the probability that the pathogen ever enters your farm while vaccination will protect the birds from the pathogen once it enters your farm. You want to maximize the number of birds you have alive at the end of the simulation because you can sell them for $3 each.</div>
+    
+    <div class="container">
+        <div class="controls">
+            <h2>Simulation Parameters</h2>
+            
+            <div class="accordion-section">
+                <div class="accordion-header">Disease Parameters</div>
+                <div class="accordion-content">
+                    <div class="parameter">
+                        <label for="r0">R0 (Basic Reproduction Number): <span id="r0-value" class="range-value">3.0</span></label>
+                        <input type="range" id="r0" min="0.1" max="10" step="0.1" value="3.0" 
+                               oninput="document.getElementById('r0-value').textContent = this.value">
+                    </div>
+                    
+                    <div class="parameter">
+                        <label for="infectiousDuration">Infectious Duration (days): <span id="infectiousDuration-value" class="range-value">3.0</span></label>
+                        <input type="range" id="infectiousDuration" min="1" max="14" step="0.5" value="3.0"
+                               oninput="document.getElementById('infectiousDuration-value').textContent = this.value">
+                    </div>
+                    
+                    <div class="parameter">
+                        <label for="mortalityRate">Mortality Rate (proportion of infected birds that die): <span id="mortalityRate-value" class="range-value">0.95</span></label>
+                        <input type="range" id="mortalityRate" min="0" max="1" step="0.01" value="0.95"
+                               oninput="document.getElementById('mortalityRate-value').textContent = this.value">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="accordion-section active">
+                <div class="accordion-header">Control Measures</div>
+                <div class="accordion-info">These are the control measures you can use to reduce the spread of the disease. Biosecurity reduces the probability that the pathogen ever enters your farm while vaccination will protect the birds from the pathogen once it enters your farm.</div>
+                <div class="accordion-content">
+                    <div class="parameter">
+                        <label for="biosecurityLevel">Biosecurity Level: <span id="biosecurityLevel-value" class="range-value">0.0</span></label>
+                        <input type="range" id="biosecurityLevel" min="0" max="1" step="0.01" value="0.0"
+                               oninput="updateBiosecurityLevel(this.value)">
+                    </div>
+                    
+                    <div class="parameter">
+                        <label for="vaccinationRate">Vaccination Rate (proportion of birds vaccinated): <span id="vaccinationRate-value" class="range-value">0.0</span></label>
+                        <input type="range" id="vaccinationRate" min="0" max="1" step="0.01" value="0.0"
+                               oninput="updateVaccinationRate(this.value)">
+                    </div>
+                    
+                    <div class="parameter">
+                        <label for="externalIntroduction">External Introduction Probability: <span id="externalIntroduction-value" class="range-value">0.20</span></label>
+                        <input type="range" id="externalIntroduction" min="0" max="1" step="0.01" value="0.20"
+                               oninput="document.getElementById('externalIntroduction-value').textContent = this.value">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="accordion-section">
+                <div class="accordion-header">Simulation Settings</div>
+                <div class="accordion-content">
+                    <div class="parameter">
+                        <label for="totalPopulation">Total Population: <span id="totalPopulation-value" class="range-value">400000</span></label>
+                        <input type="range" id="totalPopulation" min="1000" max="1000000" step="1000" value="400000"
+                               oninput="updateTotalPopulation(this.value)">
+                    </div>
+                    
+                    <div class="parameter">
+                        <label for="simulationDays">Simulation Days: <span id="simulationDays-value" class="range-value">100</span></label>
+                        <input type="range" id="simulationDays" min="10" max="365" step="1" value="100"
+                               oninput="document.getElementById('simulationDays-value').textContent = this.value">
+                    </div>
+                    
+                    <div class="parameter">
+                        <label for="numSimulations">Number of Simulations: <span id="numSimulations-value" class="range-value">10</span></label>
+                        <input type="range" id="numSimulations" min="1" max="50" step="1" value="10"
+                               oninput="document.getElementById('numSimulations-value').textContent = this.value">
+                    </div>
+                </div>
+            </div>
+            
+            
+                <div id="budgetInfo" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin: 5px 0;">
+                    <h3>Budget Information</h3>
+                    <p>Total Budget: $200,000</p>
+                    <p>Current Costs:</p>
+                    <ul>
+                        <li>Biosecurity: $<span id="biosecurityCost">0</span> ($10,000 per 10% level)</li>
+                        <li>Vaccination: $<span id="vaccinationCost">0</span> ($1 per bird)</li>
+                        <li>Remaining Budget: $<span id="remainingBudget">200000</span></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <button id="runSimulation">Run Simulation</button>
+            <button id="resetParams">Reset Parameters</button>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="sirChart"></canvas>
+        </div>
+    </div>
+    
+    <div class="summary" id="summaryResults">
+        <h2>Simulation Results</h2>
+        <p>Run a simulation to see results.</p>
+    </div>
+    
+    <div class="loading" id="loadingIndicator">
+        <h3>Running Simulations...</h3>
+        <p>This may take a few moments depending on parameter settings.</p>
+    </div>
+    
+    <script>
+        // Initialize WebAssembly module
+        let wasmReady = false;
+        let chart = null;
+        const TOTAL_BUDGET = 200000;
+        
+        const go = new Go();
+        WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
+            go.run(result.instance);
+            wasmReady = true;
+            
+            // Initialize with default parameters
+            loadDefaultParams();
+        }).catch((err) => {
+            console.error("Failed to load WASM:", err);
+            document.body.innerHTML = 
+                '<div style="color: red; padding: 20px; text-align: center;">' +
+                '<h1>Error Loading Simulation</h1>' +
+                '<p>Failed to load the WebAssembly module. Please check your browser compatibility.</p>' +
+                '<p>Error: ' + err.message + '</p>' +
+                '</div>';
+        });
+        
+        function updateBiosecurityLevel(value) {
+            const totalPopulation = parseInt(document.getElementById('totalPopulation').value);
+            const vaccinationRate = parseFloat(document.getElementById('vaccinationRate').value);
+            const biosecurityCost = value * 100000;
+            const vaccinationCost = vaccinationRate * totalPopulation;
+            
+            if (biosecurityCost + vaccinationCost > TOTAL_BUDGET) {
+                const maxAffordableBiosecurity = (TOTAL_BUDGET - vaccinationCost) / 100000;
+                value = Math.max(0, Math.min(1, maxAffordableBiosecurity));
+                document.getElementById('biosecurityLevel').value = value;
+            }
+            
+            document.getElementById('biosecurityLevel-value').textContent = value;
+            updateBudgetInfo();
+        }
+        
+        function updateVaccinationRate(value) {
+            const totalPopulation = parseInt(document.getElementById('totalPopulation').value);
+            const biosecurityLevel = parseFloat(document.getElementById('biosecurityLevel').value);
+            const biosecurityCost = biosecurityLevel * 100000;
+            const vaccinationCost = value * totalPopulation;
+            
+            if (biosecurityCost + vaccinationCost > TOTAL_BUDGET) {
+                const maxAffordableVaccination = (TOTAL_BUDGET - biosecurityCost) / totalPopulation;
+                value = Math.max(0, Math.min(1, maxAffordableVaccination));
+                document.getElementById('vaccinationRate').value = value;
+            }
+            
+            document.getElementById('vaccinationRate-value').textContent = value;
+            updateBudgetInfo();
+        }
+        
+        function updateTotalPopulation(value) {
+            const formattedValue = parseInt(value).toLocaleString();
+            document.getElementById('totalPopulation-value').textContent = formattedValue;
+            
+            // Adjust vaccination rate if needed
+            const vaccinationRate = parseFloat(document.getElementById('vaccinationRate').value);
+            const biosecurityLevel = parseFloat(document.getElementById('biosecurityLevel').value);
+            const biosecurityCost = biosecurityLevel * 100000;
+            const vaccinationCost = vaccinationRate * value;
+            
+            if (biosecurityCost + vaccinationCost > TOTAL_BUDGET) {
+                const maxAffordableVaccination = (TOTAL_BUDGET - biosecurityCost) / value;
+                document.getElementById('vaccinationRate').value = maxAffordableVaccination;
+                document.getElementById('vaccinationRate-value').textContent = maxAffordableVaccination;
+            }
+            
+            updateBudgetInfo();
+        }
+        
+        // Load default parameters from WASM
+        function loadDefaultParams() {
+            if (!wasmReady) return;
+            
+            const defaultParams = getDefaultParams();
+            document.getElementById('r0').value = defaultParams.r0;
+            document.getElementById('r0-value').textContent = defaultParams.r0;
+            
+            document.getElementById('infectiousDuration').value = defaultParams.infectiousDuration;
+            document.getElementById('infectiousDuration-value').textContent = defaultParams.infectiousDuration;
+            
+            document.getElementById('mortalityRate').value = defaultParams.mortalityRate;
+            document.getElementById('mortalityRate-value').textContent = defaultParams.mortalityRate;
+            
+            document.getElementById('externalIntroduction').value = defaultParams.externalIntroduction;
+            document.getElementById('externalIntroduction-value').textContent = defaultParams.externalIntroduction;
+            
+            document.getElementById('biosecurityLevel').value = defaultParams.biosecurityLevel;
+            document.getElementById('biosecurityLevel-value').textContent = defaultParams.biosecurityLevel;
+            
+            document.getElementById('vaccinationRate').value = defaultParams.vaccinationRate;
+            document.getElementById('vaccinationRate-value').textContent = defaultParams.vaccinationRate;
+            
+            document.getElementById('totalPopulation').value = defaultParams.totalPopulation;
+            document.getElementById('totalPopulation-value').textContent = defaultParams.totalPopulation.toLocaleString();
+            
+            document.getElementById('simulationDays').value = defaultParams.simulationDays;
+            document.getElementById('simulationDays-value').textContent = defaultParams.simulationDays;
+            
+            updateBudgetInfo();
+        }
+        
+        // Get current parameters from UI
+        function getCurrentParams() {
+            return {
+                r0: parseFloat(document.getElementById('r0').value),
+                infectiousDuration: parseFloat(document.getElementById('infectiousDuration').value),
+                mortalityRate: parseFloat(document.getElementById('mortalityRate').value),
+                externalIntroduction: parseFloat(document.getElementById('externalIntroduction').value),
+                biosecurityLevel: parseFloat(document.getElementById('biosecurityLevel').value),
+                vaccinationRate: parseFloat(document.getElementById('vaccinationRate').value),
+                totalPopulation: parseInt(document.getElementById('totalPopulation').value),
+                simulationDays: parseInt(document.getElementById('simulationDays').value)
+            };
+        }
+        
+        // Initialize chart
+        function initChart() {
+            const ctx = document.getElementById('sirChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'Susceptible',
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            fill: true,
+                            data: []
+                        },
+                        {
+                            label: 'Infectious',
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            fill: true,
+                            data: []
+                        },
+                        {
+                            label: 'Recovered',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                            fill: true,
+                            data: []
+                        },
+                        {
+                            label: 'Dead',
+                            borderColor: 'rgba(128, 128, 128, 1)',
+                            backgroundColor: 'rgba(128, 128, 128, 0.1)',
+                            fill: true,
+                            data: []
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Days'
+                            }
+                        },
+                        y: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Birds'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Update chart with new data
+        function updateChart(data) {
+            if (!chart) {
+                initChart();
+            }
+            
+            const days = data.map(d => d.day);
+            const susceptible = data.map(d => d.susceptible);
+            const infectious = data.map(d => d.infectious);
+            const recovered = data.map(d => d.recovered);
+            const dead = data.map(d => d.dead);
+            
+            chart.data.labels = days;
+            chart.data.datasets[0].data = susceptible;
+            chart.data.datasets[1].data = infectious;
+            chart.data.datasets[2].data = recovered;
+            chart.data.datasets[3].data = dead;
+            chart.update();
+            
+            // Update summary
+            updateSummary(data);
+        }
+        
+        // Update budget information
+        function updateBudgetInfo() {
+            const biosecurityLevel = parseFloat(document.getElementById('biosecurityLevel').value);
+            const vaccinationRate = parseFloat(document.getElementById('vaccinationRate').value);
+            const totalPopulation = parseInt(document.getElementById('totalPopulation').value);
+            
+            const biosecurityCost = biosecurityLevel * 100000;
+            const vaccinationCost = vaccinationRate * totalPopulation;
+            const remainingBudget = TOTAL_BUDGET - biosecurityCost - vaccinationCost;
+            
+            document.getElementById('biosecurityCost').textContent = Math.round(biosecurityCost).toLocaleString();
+            document.getElementById('vaccinationCost').textContent = Math.round(vaccinationCost).toLocaleString();
+            
+            const remainingBudgetElement = document.getElementById('remainingBudget');
+            remainingBudgetElement.textContent = Math.round(remainingBudget).toLocaleString();
+            remainingBudgetElement.classList.toggle('over-budget', remainingBudget < 0);
+        }
+        
+        // Update summary statistics
+        function updateSummary(data) {
+            const lastDay = data[data.length - 1];
+            const peakInfectious = Math.max(...data.map(d => d.infectious));
+            const peakDay = data.findIndex(d => d.infectious === peakInfectious);
+            const totalPopulation = getCurrentParams().totalPopulation;
+            
+            let summary = `
+                <h2>Simulation Results</h2>
+                <p><strong>Final State (Day ${data.length - 1}):</strong></p>
+                <ul>
+                    <li>Susceptible: ${Math.round(lastDay.susceptible).toLocaleString()} (${(lastDay.susceptible/totalPopulation*100).toFixed(2)}%)</li>
+                    <li>Infectious: ${Math.round(lastDay.infectious).toLocaleString()} (${(lastDay.infectious/totalPopulation*100).toFixed(2)}%)</li>
+                    <li>Recovered: ${Math.round(lastDay.recovered).toLocaleString()} (${(lastDay.recovered/totalPopulation*100).toFixed(2)}%)</li>
+                    <li>Dead: ${Math.round(lastDay.dead).toLocaleString()} (${(lastDay.dead/totalPopulation*100).toFixed(2)}%)</li>
+                </ul>
+                <p><strong>Peak Infection:</strong> ${Math.round(peakInfectious).toLocaleString()} birds (${(peakInfectious/totalPopulation*100).toFixed(2)}%) on day ${peakDay}</p>
+                <p><strong>Total Affected:</strong> ${Math.round(lastDay.recovered + lastDay.dead).toLocaleString()} birds (${((lastDay.recovered + lastDay.dead)/totalPopulation*100).toFixed(2)}%)</p>
+                <h3>Financial Summary</h3>
+                <ul>
+                    <li>Revenue ($3 per live bird): $${Math.round(lastDay.profit).toLocaleString()}</li>
+                    <li>Total Costs: $${Math.round(lastDay.costs).toLocaleString()}</li>
+                    <li>Net Profit: $${Math.round(lastDay.netProfit).toLocaleString()}</li>
+                </ul>
+            `;
+            
+            document.getElementById('summaryResults').innerHTML = summary;
+        }
+        
+        // Run simulation button handler
+        document.getElementById('runSimulation').addEventListener('click', async function() {
+            if (!wasmReady) {
+                alert("WebAssembly module is not yet loaded. Please wait a moment and try again.");
+                return;
+            }
+            
+            // Show loading indicator
+            document.getElementById('loadingIndicator').style.display = 'block';
+            
+            // Get parameters
+            const params = getCurrentParams();
+            const numSimulations = parseInt(document.getElementById('numSimulations').value);
+            
+            // Run with a slight delay to allow UI to update
+            setTimeout(() => {
+                try {
+                    const results = runSimulations(params, numSimulations);
+                    updateChart(results);
+                } catch (error) {
+                    console.error("Simulation error:", error);
+                    alert("An error occurred during simulation: " + error.message);
+                } finally {
+                    // Hide loading indicator
+                    document.getElementById('loadingIndicator').style.display = 'none';
+                }
+            }, 50);
+        });
+        
+        // Reset parameters button handler
+        document.getElementById('resetParams').addEventListener('click', function() {
+            loadDefaultParams();
+        });
+        
+        // Add accordion functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const accordions = document.querySelectorAll('.accordion-header');
+            
+            accordions.forEach(accordion => {
+                accordion.addEventListener('click', function() {
+                    const section = this.parentElement;
+                    section.classList.toggle('active');
+                });
+            });
+            
+            // Open first accordion by default
+            document.querySelectorAll('.accordion-section')[1].classList.add('active');
+            
+            initChart();
+            updateBudgetInfo();
+        });
+    </script>
+</body>
+</html>
