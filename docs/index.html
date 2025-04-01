@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stochastic SIR Model Simulation</title>
+    <title>H5N1 Poultry Farm Management</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         body {
@@ -141,9 +141,12 @@
     <script src="wasm_exec.js"></script>
 </head>
 <body>
-    <h1>Stochastic SIR Model Simulation for Bird Populations</h1>
+    <h1>Poultry Farm Management with H5N1</h1>
 
-    <div>You're a poultry farmer and trying to figure out how to best manage your farm. You have a budget of $200,000 from your savings that you could hold, spend on vaccination, or spend on biosecurity. Biosecurity reduces the probability that the pathogen ever enters your farm while vaccination will protect the birds from the pathogen once it enters your farm. You want to maximize the number of birds you have alive at the end of the simulation because you can sell them for $3 each.</div>
+    <div>You're a poultry farmer and trying to figure out how to best manage your farm.
+        You have a budget of $400,000 from your savings that you could hold, spend on vaccination, or spend on biosecurity.
+        Biosecurity reduces the probability that the pathogen ever enters your farm while vaccination will protect the birds from the pathogen once it enters your farm.
+        You want to maximize the number of birds you have alive at the end of the simulation because you can sell them for $3 each.</div>
     
     <div class="container">
         <div class="controls">
@@ -222,10 +225,10 @@
             
                 <div id="budgetInfo" style="background-color: #f8f9fa; padding: 10px; border-radius: 4px; margin: 5px 0;">
                     <h3>Budget Information</h3>
-                    <p>Total Budget: $200,000</p>
+                    <p>Total Budget: $400,000</p>
                     <p>Current Costs:</p>
                     <ul>
-                        <li>Biosecurity: $<span id="biosecurityCost">0</span> ($10,000 per 10% level)</li>
+                        <li>Biosecurity: $<span id="biosecurityCost">0</span> ($40,000 per 10% level)</li>
                         <li>Vaccination: $<span id="vaccinationCost">0</span> ($1 per bird)</li>
                         <li>Remaining Budget: $<span id="remainingBudget">200000</span></li>
                     </ul>
@@ -255,7 +258,7 @@
         // Initialize WebAssembly module
         let wasmReady = false;
         let chart = null;
-        const TOTAL_BUDGET = 200000;
+        const TOTAL_BUDGET = 400000;
         
         const go = new Go();
         WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject).then((result) => {
@@ -277,11 +280,11 @@
         function updateBiosecurityLevel(value) {
             const totalPopulation = parseInt(document.getElementById('totalPopulation').value);
             const vaccinationRate = parseFloat(document.getElementById('vaccinationRate').value);
-            const biosecurityCost = value * 100000;
+            const biosecurityCost = value * 400000;
             const vaccinationCost = vaccinationRate * totalPopulation;
             
             if (biosecurityCost + vaccinationCost > TOTAL_BUDGET) {
-                const maxAffordableBiosecurity = (TOTAL_BUDGET - vaccinationCost) / 100000;
+                const maxAffordableBiosecurity = (TOTAL_BUDGET - vaccinationCost) / 400000;
                 value = Math.max(0, Math.min(1, maxAffordableBiosecurity));
                 document.getElementById('biosecurityLevel').value = value;
             }
@@ -293,7 +296,7 @@
         function updateVaccinationRate(value) {
             const totalPopulation = parseInt(document.getElementById('totalPopulation').value);
             const biosecurityLevel = parseFloat(document.getElementById('biosecurityLevel').value);
-            const biosecurityCost = biosecurityLevel * 100000;
+            const biosecurityCost = biosecurityLevel * 400000;
             const vaccinationCost = value * totalPopulation;
             
             if (biosecurityCost + vaccinationCost > TOTAL_BUDGET) {
@@ -313,7 +316,7 @@
             // Adjust vaccination rate if needed
             const vaccinationRate = parseFloat(document.getElementById('vaccinationRate').value);
             const biosecurityLevel = parseFloat(document.getElementById('biosecurityLevel').value);
-            const biosecurityCost = biosecurityLevel * 100000;
+            const biosecurityCost = biosecurityLevel * 400000;
             const vaccinationCost = vaccinationRate * value;
             
             if (biosecurityCost + vaccinationCost > TOTAL_BUDGET) {
@@ -466,7 +469,7 @@
             const vaccinationRate = parseFloat(document.getElementById('vaccinationRate').value);
             const totalPopulation = parseInt(document.getElementById('totalPopulation').value);
             
-            const biosecurityCost = biosecurityLevel * 100000;
+            const biosecurityCost = biosecurityLevel * 400000;
             const vaccinationCost = vaccinationRate * totalPopulation;
             const remainingBudget = TOTAL_BUDGET - biosecurityCost - vaccinationCost;
             

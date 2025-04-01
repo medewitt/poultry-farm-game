@@ -38,15 +38,15 @@ func DefaultParams() SIRParams {
 		ExternalIntroduction: 0.20,
 		BiosecurityLevel:     0.0,
 		VaccinationRate:      0.0,
-		TotalPopulation:      400000,
+		TotalPopulation:      500000,
 		SimulationDays:       100,
-		Budget:               250000,
+		Budget:               400000,
 	}
 }
 
 // Calculate costs and validate budget
 func validateBudget(params SIRParams) error {
-	biosecurityCost := (params.BiosecurityLevel * 100000)                       // $10000 per 10%
+	biosecurityCost := (params.BiosecurityLevel * 400000)                       // $20000 per 10%
 	vaccinationCost := float64(params.TotalPopulation) * params.VaccinationRate // $1 per bird
 	totalCost := biosecurityCost + vaccinationCost
 
@@ -163,7 +163,7 @@ func runMultipleSimulations(params SIRParams, numSimulations int) ([]map[string]
 	profit := totalLiveBirds * 3.0 // $3 per live bird
 
 	// Add costs
-	biosecurityCost := params.BiosecurityLevel * 100000
+	biosecurityCost := params.BiosecurityLevel * 400000
 	vaccinationCost := float64(params.TotalPopulation) * params.VaccinationRate
 	remainingBudget := params.Budget - biosecurityCost - vaccinationCost
 	netProfit := profit - biosecurityCost - vaccinationCost + remainingBudget // Add remaining budget to net profit
